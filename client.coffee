@@ -15,20 +15,6 @@ Photo = require 'photo'
 Social = require 'social'
 {tr} = require 'i18n'
 
-exports.renderSettings = !->
-	if Db.shared
-		Dom.div !->
-			Dom.style margin: '16px 0', textAlign: 'center'
-			Dom.b tr "Current hunt: "
-			Dom.div !->
-				Dom.style marginBottom: '8px'
-				Dom.text Db.shared.get('hunts', Db.shared.get('hunts', 'maxId'), 'subject')
-
-			Ui.button 'Proceed to next hunt', !->
-				Server.call 'newHunt'
-	else
-		Dom.text tr 'During the game you will find a button here to proceed to the next hunt.'
-
 exports.render = ->
 	if Page.state.get(0)
 		renderHunt Page.state.get(0), Page.state.get(1)
@@ -91,7 +77,7 @@ exports.render = ->
 			Dom.div !->
 				Dom.div tr("A new Hunt will start")
 				Dom.div !->
-					Dom.style fontSize: '120%', fontWeight: 'bold', color: Colors.highlight
+					Dom.style fontSize: '120%', fontWeight: 'bold'
 					Time.deltaText Db.shared.get('next')
 
 			Dom.onTap !->
@@ -127,7 +113,9 @@ exports.render = ->
 						if hunt.get('winner')
 							Dom.div !->
 								Dom.style fontSize: '75%', marginTop: '6px'
-								Dom.text tr("Hunt won by %1", Plugin.userName(hunt.get('photos', hunt.get('winner'), 'userId')))
+								Dom.text tr("%1 won!", Plugin.userName(hunt.get('photos', hunt.get('winner'), 'userId')))
+								if (cnt = hunt.count('photos').get()-2)
+									Dom.text ' (' + tr("%1 |runner-up|runners-up", cnt) + ')'
 
 					if unread = Social.newComments(hunt.key())
 						Dom.div !->
@@ -144,7 +132,7 @@ exports.render = ->
 					Dom.div !->
 						Dom.style Flex: 1, fontSize: '120%'
 						if showAsNewest
-							Dom.text tr 'Take a photo of you..'
+							Dom.text tr "Take a photo of you.."
 							Dom.div !->
 								Dom.style fontSize: '120%', fontWeight: 'bold', color: Colors.highlight
 								Dom.text hunt.get('subject')
@@ -152,7 +140,9 @@ exports.render = ->
 							Dom.text hunt.get('subject')
 							Dom.div !->
 								Dom.style fontSize: '75%', marginTop: '6px'
-								Dom.text 'No winner yet!'
+								Dom.text tr("Winner gets %1 points", 10)
+								if (cnt = hunt.count('photos').get()-1) > 0
+									Dom.text ' (' + tr("%1 disqualified |runner-up|runners-up", cnt) + ')'
 
 					if unread = Social.newComments(hunt.key())
 						Dom.div !->

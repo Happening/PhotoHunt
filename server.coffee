@@ -3,7 +3,7 @@ Plugin = require 'plugin'
 Db = require 'db'
 Event = require 'event'
 
-exports.onInstall = (config) !->
+exports.onInstall = () !->
 	newHunt(3) # we'll start with 3 subjects
 	Event.create
 		unit: 'hunts'
@@ -43,7 +43,7 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1) !->
 	if prevHunts = Db.shared.get('hunts')
 		for huntId, hunt of prevHunts
 			continue if !+huntId
-			if (pos = hunts.indexOf(hunt.subject))?
+			if (pos = hunts.indexOf(hunt.subject)) >= 0
 				hunts.splice pos, 1
 
 	# find some new hunts
@@ -80,24 +80,41 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1) !->
 
 exports.client_removePhoto = (huntId, photoId, disqualify = false) !->
 	photos = Db.shared.ref 'hunts', huntId, 'photos'
-	if photos.get photoId
-		if disqualify
-			photos.set photoId, 'disqualified', true
-			addComment huntId, "disqualified the photo added by " + Plugin.userName(photos.get photoId, 'userId')
-		else
-			photoOwner = photos.get photoId, 'userId'
-			if Plugin.userId() isnt photoOwner
-				addComment huntId, "removed the photo added by " + Plugin.userName(photoOwner)
-			photos.remove photoId
+	return if !photos.get photoId
+
+	thisUserSubmission = Plugin.userId() is photos.get(photoId, 'userId')
+	name = Plugin.userName(photos.get photoId, 'userId')
+	possessive = if name.charAt(name.length-1).toLowerCase() is 's' then "'" else "'s"
+
+	if disqualify
+		photos.set photoId, 'disqualified', true
+	else
+		photos.remove photoId
 
 	# find a new winner if necessary
+	newWinnerName = null
 	if Db.shared.get('hunts', huntId, 'winner') is photoId
 		smId = (+k for k, v of photos.get() when !v.disqualified)?.sort()[0]
 		Db.shared.set 'hunts', huntId, 'winner', smId
 		if smId
+			newWinnerName = Plugin.userName(photos.get smId, 'userId')
 			Event.create
 				unit: 'hunts'
-				text: "Photo Hunt: results revised, "+Plugin.userName(photos.get smId, 'userId')+" won! ("+Db.shared.get('hunts', huntId, 'subject')+")"
+				text: "Photo Hunt: results revised, "+newWinnerName+" won! ("+Db.shared.get('hunts', huntId, 'subject')+")"
+
+	comment = null
+	if disqualify
+		comment = "disqualified " + name + possessive + " submission"
+	else if thisUserSubmission
+		comment = "retracted submission"
+	else if !thisUserSubmission
+		comment = "removed " + name + possessive + " submission"
+
+	if comment
+		if newWinnerName
+			comment = comment + ", making " + newWinnerName + " the new winner!"
+		addComment huntId, comment
+
 
 exports.onPhoto = (info, huntId) !->
 	huntId = huntId[0]
