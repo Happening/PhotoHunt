@@ -14,7 +14,7 @@ exports.onUpgrade = !->
 	if Db.shared.get('next') < Plugin.time()
 		newHunt()
 
-exports.client_newHunt = exports.newHunt = newHunt = (amount = 1) !->
+exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !->
 	log 'newHunt called, amount '+amount
 	hunts = [
 		"Brushing your teeth",
@@ -53,30 +53,35 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1) !->
 		newHunts.push hunts[sel]
 		hunts.splice sel, 1
 
-	log 'selected new hunts: '+JSON.stringify(newHunts)
+	if !newHunts.length
+		log 'no more hunts available'
+		if cb
+			cb.reply true
+	else
+		log 'selected new hunts: '+JSON.stringify(newHunts)
 
-	for newHunt in newHunts
-		maxId = Db.shared.ref('hunts').incr 'maxId'
-			# first referencing hunts, as Db.shared.incr 'hunts', 'maxId' is buggy
-		Db.shared.set 'hunts', maxId,
-			subject: newHunt
-			time: 0|(Date.now()*.001)
-			photos: {}
+		for newHunt in newHunts
+			maxId = Db.shared.ref('hunts').incr 'maxId'
+				# first referencing hunts, as Db.shared.incr 'hunts', 'maxId' is buggy
+			Db.shared.set 'hunts', maxId,
+				subject: newHunt
+				time: 0|(Date.now()*.001)
+				photos: {}
 
-		# schedule the next hunt when there are still hunts left
-		if hunts.length
-			tomorrowStart = Math.floor(Plugin.time()/86400)*86400 + 86400
-			nextTime = tomorrowStart + (10*3600) + Math.floor(Math.random()*(12*3600))
-			Timer.cancel()
-			Timer.set (nextTime-Plugin.time())*1000, 'newHunt'
-			Db.shared.set 'next', nextTime
+			# schedule the next hunt when there are still hunts left
+			if hunts.length
+				tomorrowStart = Math.floor(Plugin.time()/86400)*86400 + 86400
+				nextTime = tomorrowStart + (10*3600) + Math.floor(Math.random()*(12*3600))
+				Timer.cancel()
+				Timer.set (nextTime-Plugin.time())*1000, 'newHunt'
+				Db.shared.set 'next', nextTime
 
-	# we'll only notify when this is about a single new hunt
-	if newHunts.length is 1
-		subj = newHunts[0]
-		Event.create
-			unit: 'hunts'
-			text: "New Photo Hunt: take a photo of you.. " + subj.charAt(0).toLowerCase() + subj.slice(1)
+		# we'll only notify when this is about a single new hunt
+		if newHunts.length is 1
+			subj = newHunts[0]
+			Event.create
+				unit: 'hunts'
+				text: "New Photo Hunt: take a photo of you.. " + subj.charAt(0).toLowerCase() + subj.slice(1)
 
 exports.client_removePhoto = (huntId, photoId, disqualify = false) !->
 	photos = Db.shared.ref 'hunts', huntId, 'photos'

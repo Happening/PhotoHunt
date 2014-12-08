@@ -81,15 +81,19 @@ exports.render = ->
 					Time.deltaText Db.shared.get('next')
 
 			Dom.onTap !->
+				requestNewHunt = !->
+					Server.call 'newHunt', 1, (done) !->
+						if (done)
+							require('modal').show tr("No more hunts"), tr("All hunts have taken place, contact the Happening makers about adding new hunts!")
 				if Plugin.userId() is Plugin.ownerId()
 					require('modal').show tr("New Hunt"), tr("Every day a new Hunt wil start somewhere between 10am and 10pm. You however (and admins), can trigger a new hunt manually (you added the Photo Hunt)."), (option) !->
 						if option is 'new'
-							Server.call 'newHunt'
+							requestNewHunt()
 					, ['cancel', tr("Cancel"), 'new', tr("New Hunt")]
 				else if Plugin.userIsAdmin()
 					require('modal').show tr("New Hunt"), tr("Every day a new Hunt wil start somewhere between 10am and 10pm. Admins however (and %1, who added the Photo Hunt), can trigger a new hunt manually.", Plugin.userName(Plugin.ownerId())), (option) !->
 						if option is 'new'
-							Server.call 'newHunt'
+							requestNewHunt()
 					, ['cancel', tr("Cancel"), 'new', tr("New Hunt")]
 				else
 					require('modal').show tr("New Hunt"), tr("Every day a new Hunt wil start somewhere between 10am and 10pm, unless an admin or %1 (who added the Photo Hunt) trigger a new hunt manually.", Plugin.userName(Plugin.ownerId()))
