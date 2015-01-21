@@ -11,32 +11,105 @@ exports.onInstall = () !->
 
 exports.onUpgrade = !->
 	# apparently a timer did not fire, correct it
-	if Db.shared.get('next') < Plugin.time()
+	if 0 < Db.shared.get('next') < Plugin.time()
 		newHunt()
 
 exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !->
+	return if Db.shared.get('next') is -1
+		# used to disable my plugins and master instances
+
 	log 'newHunt called, amount '+amount
 	hunts = [
-		"Brushing your teeth",
-		"Riding a bike",
-		"Kissing someone",
-		"Wearing a cap",
-		"And a police officer",
-		"Drinking a glass of beer",
-		"With a store mannequin",
-		"Sitting on a swing",
-		"Carrying someone",
-		"With someone wearing the same shirt",
-		"In an elevator",
-		"Eating an ice cream",
-		"Hugging a stuffed animal",
-		"Wearing yellow sunglasses",
-		"Wearing ski goggles",
-		"Smoking a cigar",
-		"And one of your parents",
-		"With whipped cream on your face",
-		"Blowing bubble gum",
+		"Brushing your teeth"
+		"Riding a bike"
+		"Kissing someone"
+		"Wearing a cap"
+		"And a police officer"
+		"Drinking a glass of beer"
+		"With a store mannequin"
+		"Sitting on a swing"
+		"Carrying someone"
+		"With someone wearing the same shirt"
+		"In an elevator"
+		"Eating an ice cream"
+		"Hugging a stuffed animal"
+		"Wearing yellow sunglasses"
+		"Wearing ski goggles"
+		"Smoking a cigar"
+		"And one of your parents"
+		"With whipped cream on your face"
+		"Blowing bubble gum"
 		"Lying on the street"
+		"Wearing a medal"
+		"Petting an animal"
+		"In a shopping cart"
+		"Shampooing your hair"
+		"Under a parking sign"
+		"Wearing a flower in your hair"
+		"On a slide"
+		"Under an umbrella"
+		"Hugging a tree"
+		"In a church"
+		"With a Ford Ka"
+		"Balancing 3 pillows on your head"
+		"Doing push-ups"
+		"Holding a (real!) baby"
+		"Painting"
+		"On a treadmill"
+		"Reflected in water"
+		"With a guitar"
+		"Eating sprouts"
+		"Playing with lego"
+		"Holding a vinyl record"
+		"Inflating a balloon"
+		"Talking to a rubber duck"
+		"In mid-air"
+		"With nine other people"
+		"In a library"
+		"Standing on a rooftop"
+		"Dressed all white"
+		"In pyjamas"
+		"On a train"
+		"With today's newspaper"
+		"On a skateboard"
+		"With grass in your mouth"
+		"In a classroom"
+		"Waving a (full-size) flag"
+		"Hanging a spoon from your nose"
+		"Throwing a frisbee"
+		"With a panty hose over your head"
+		"Hanging under a table"
+		"Posting a letter"
+		"In a cinema"
+		"Baking pancakes"
+		"Taking out the trash"
+		"Wrapped in curtains"
+		"Drinking through a straw"
+		"Lighting a candle"
+		"Lying in the grass"
+		"Screaming"
+		"Wearing earmuffs"
+		"Playing darts"
+		"In a revolving door"
+		"Shaving"
+		"Infinitely reflected in two mirrors"
+		"Holding a Rubik's Cube"
+		"Holding a photo of yourself"
+		"On a bridge"
+		"Lying in bed"
+		"Wearing a pink shirt"
+		"In a pub"
+		"In sportswear"
+		"Petting a horse"
+		"Wearing glasses"
+		"In the trunk of a car"
+		"Playing the piano"
+		"Wearing bowtie"
+		"Holding a folded paper swan"
+		"Climbing a lamp post"
+		"Eating a banana"
+		"Wearing a onesie"
+		"With the supermarket cashier"
 	]
 
 	# remove hunts that have taken place already

@@ -1,5 +1,4 @@
 name: Photo Hunt
-description: Who's the first to make the required photo?
-icon: photo
-store: 400
+description: Who's the first to take the required photo?
+store: 800
 api: 2

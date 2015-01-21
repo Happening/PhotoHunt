@@ -15,7 +15,7 @@ Photo = require 'photo'
 Social = require 'social'
 {tr} = require 'i18n'
 
-exports.render = ->
+exports.render = !->
 	if Page.state.get(0)
 		renderHunt Page.state.get(0), Page.state.get(1)
 			# when a second id is passed along that photo is rendered without other stuff around it
@@ -215,38 +215,27 @@ renderHunt = (huntId, photoId) !->
 		# main photo
 		contain = Obs.create false
 		if mainPhoto and mainPhoto.key()
-			Dom.div !->
-				Dom.style
-					position: 'relative'
-					height: Dom.viewport.get('width') + 'px'
-					width: Dom.viewport.get('width') + 'px'
-					backgroundColor: '#333'
-					backgroundImage: Photo.css mainPhoto.get('key'), 800
-					backgroundPosition: '50% 50%'
-					backgroundSize: if contain.get() then 'contain' else 'cover'
-					backgroundRepeat: 'no-repeat'
+			(require 'photoview').render
+				key: mainPhoto.get('key')
+				content: !->
+					Ui.avatar Plugin.userAvatar(mainPhoto.get('userId')), !->
+						Dom.style position: 'absolute', bottom: '4px', right: '4px', margin: 0
 
-				Ui.avatar Plugin.userAvatar(mainPhoto.get('userId')), !->
-					Dom.style position: 'absolute', bottom: '4px', right: '4px', margin: 0
-
-				Dom.onTap !->
-					contain.set !contain.peek()
-
-				Dom.div !->
-					Dom.style
-						position: 'absolute'
-						textAlign: 'right'
-						bottom: '10px'
-						right: '50px'
-						textShadow: '0 1px 0 #000'
-						color: '#fff'
-					if photoId
-						Dom.text tr("Runner-up by %1", Plugin.userName(mainPhoto.get('userId')))
-					else
-						Dom.text tr("Won by %1", Plugin.userName(mainPhoto.get('userId')))
 					Dom.div !->
-						Dom.style fontSize: '75%'
-						Dom.text tr("%1 point|s", if photoId then 2 else 10)
+						Dom.style
+							position: 'absolute'
+							textAlign: 'right'
+							bottom: '10px'
+							right: '50px'
+							textShadow: '0 1px 0 #000'
+							color: '#fff'
+						if photoId
+							Dom.text tr("Runner-up by %1", Plugin.userName(mainPhoto.get('userId')))
+						else
+							Dom.text tr("Won by %1", Plugin.userName(mainPhoto.get('userId')))
+						Dom.div !->
+							Dom.style fontSize: '75%'
+							Dom.text tr("%1 point|s", if photoId then 2 else 10)
 		else if !photoId
 			Dom.div !->
 				Dom.style textAlign: 'center', padding: '16px'
