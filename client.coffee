@@ -35,40 +35,53 @@ exports.render = !->
 			Obs.onClean !->
 				rankings.incr photo.get('userId'), -2
 
-	Obs.observe !->
-		log 'rankings', rankings.get()
+	#Obs.observe !->
+	#	log 'rankings', rankings.get()
 
 	Dom.h1 !->
-		Dom.style textAlign: 'center'
-		Dom.text tr "Best Hunters"
+		Dom.style textAlign: 'center', margin: '2px 0 6px 0'
+		Dom.text tr "Top hunters"
+	
+	# Last week | All time | You...?
+	
+	showMore = Obs.create false
 
-	meInTop3 = false
-	Dom.div !->
-		Dom.style Box: true, padding: '4px 12px'
+	Obs.observe !->
 		sorted = (+k for k, v of rankings.get()).sort (a, b) -> rankings.get(b) - rankings.get(a)
-		if !rankings.get(sorted[0])
+		points = pos = 0
+		loop
 			Dom.div !->
-				Dom.style Flex: 1, textAlign: 'center', padding: '10px'
-				Dom.text tr("No photos have been submitted yet")
-		else
-			for i in [0..Math.min(2, sorted.length-1)] then do (i) !->
-				Dom.div !->
-					Dom.style Box: 'center vertical', Flex: 1
-					Ui.avatar Plugin.userAvatar(sorted[i]), null, 80
+				Dom.style Box: true, padding: '4px 12px 0 12px'
+				for i in [0...3]
+					break unless userId = sorted[pos+i]
+					points = rankings.get(userId)
+					if !points
+						if pos+i==0
+							Dom.div !->
+								Dom.style Flex: 1, textAlign: 'center', padding: '10px'
+								Dom.text tr("No photos have been submitted yet")
+						break
 					Dom.div !->
-						Dom.style margin: '4px', textAlign: 'center'
-						meInTop3 = true if Plugin.userId() is sorted[i]
-						Dom.text Plugin.userName(sorted[i])
+						Dom.style Box: 'center vertical', Flex: 1
+						Ui.avatar Plugin.userAvatar(userId), null, 80
 						Dom.div !->
-							Dom.style fontSize: '75%'
-							Dom.text tr("%1 points", rankings.get(sorted[i]))
+							Dom.style margin: '4px', textAlign: 'center'
+							Dom.text Plugin.userName(userId)
+							Dom.div !->
+								Dom.style fontSize: '75%'
+								Dom.text tr("%1 points", points)
+			pos += 3
+			break if !points or !sorted[pos] or !showMore.get()
 
-	if !meInTop3
-		Dom.div !->
-			Dom.style fontSize: '75%', fontStyle: 'italic', paddingBottom: '8px', textAlign: 'center'
-			Dom.text tr("(You have %1 point|s)", rankings.get(Plugin.userId())||0)
+		if sorted[3] and rankings.get(sorted[3]) and !showMore.get()
+			Dom.div !->
+				Dom.style padding: '8px', borderRadius: '2px', textAlign: 'center'
+				Dom.addClass 'link'
+				Dom.text tr("Show all hunters..", rankings.get(Plugin.userId())||0)
+				Dom.onTap !-> showMore.set true
 
 	Ui.list !->
+		Dom.style marginTop: '4px'
 		# next hunt
 		Ui.item !->
 			Dom.div !->
@@ -101,7 +114,6 @@ exports.render = !->
 
 		Db.shared.observeEach 'hunts', (hunt) !->
 			Ui.item !->
-				log 'hunt', hunt.get()
 				winningPhoto = hunt.ref('photos', hunt.get('winner'))
 				if key = winningPhoto.get('key')
 					Dom.div !->
@@ -159,6 +171,27 @@ exports.render = !->
 			if +hunt.key()
 				-hunt.key()
 
+getUploading = (huntId) ->
+	if uploads = Photo.uploads.get()
+		for key, upload of uploads
+			return upload if +upload.localId is +huntId
+
+renderUploading = (upload, boxSize) !->
+	Dom.div !->
+		Dom.style
+			margin: '2px'
+			display: 'inline-block'
+			Box: 'inline right bottom'
+			height: boxSize.get() + 'px'
+			width: boxSize.get() + 'px'
+		if thumb = upload.thumb
+			Dom.style
+				background: "url(#{thumb}) 50% 50% no-repeat"
+				backgroundSize: 'cover'
+		Dom.cls 'photo'
+		Ui.spinner 24, !->
+			Dom.style margin: '5px'
+		, 'spin-light.png'
 
 renderHunt = (huntId, photoId) !->
 	Dom.style padding: 0
@@ -239,10 +272,12 @@ renderHunt = (huntId, photoId) !->
 		else if !photoId
 			Dom.div !->
 				Dom.style textAlign: 'center', padding: '16px'
-				if allowUpload.get()
+				if upload = getUploading(huntId)
+					renderUploading upload, boxSize
+				else if allowUpload.get()
 					addPhoto boxSize.get()-4, huntId
 					Dom.div !->
-						Dom.style textAlign: 'center', marginBottom: '16px'
+						Dom.style textAlign: 'center', margin: '8px 0 16px 0'
 						Dom.text tr 'The first one wins 10 points!'
 				else
 					Dom.text tr "You have already submitted a photo for this Hunt..."
@@ -281,7 +316,9 @@ renderHunt = (huntId, photoId) !->
 						if +photo.key()
 							photo.key()
 
-					if allowUpload.get() and winnerId
+					if upload = getUploading(huntId)
+						renderUploading upload, boxSize
+					else if allowUpload.get() and winnerId
 						addPhoto boxSize.get()-4, huntId
 					else if photos.count().get()<=(1 + if winnerId then 1 else 0) # maxId is also counted
 						Dom.div !->
@@ -289,7 +326,6 @@ renderHunt = (huntId, photoId) !->
 							Dom.text tr "No runners-up submitted"
 
 	if !photoId
-		log 'comments >>> '+huntId
 		Social.renderComments huntId, render: (comment) ->
 			if comment.s and comment.u
 				comment.c = Plugin.userName(comment.u) + ' ' + comment.c
@@ -318,7 +354,7 @@ addPhoto = (size, huntId) !->
 			height: size + 'px'
 			width: size + 'px'
 		Dom.onTap !->
-			Photo.pick 'camera', [huntId]
+			Photo.pick 'camera', [huntId], huntId
 
 Dom.css
 	'.add.tap::after, .photo.tap::after':

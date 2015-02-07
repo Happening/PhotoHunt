@@ -104,12 +104,35 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 		"Wearing glasses"
 		"In the trunk of a car"
 		"Playing the piano"
-		"Wearing bowtie"
+		"Wearing a bowtie"
 		"Holding a folded paper swan"
 		"Climbing a lamp post"
 		"Eating a banana"
 		"Wearing a onesie"
 		"With the supermarket cashier"
+		"Holding a cassette walkman"
+		"Wearing Superman merchandise"
+		"Showing your high school diploma"
+		"With a steaming tea kettle"
+		"Wearing ice skates"
+		"Outside wearing snowboots"
+		"Holding an assembled kite"
+		"Holding a $100 or €100 bill"
+		"Clearly sweating"
+		"With just a plain red background"
+		"Eating popcorn"
+		"In drenching wet clothes"
+		"Taking a bath"
+		"Wearing a helmet"
+		"Donating to a street performer"
+		"In a tent"
+		"With a traffic light"
+		"Lying in a hammock"
+		"With your mouth taped shut"
+		"With a garden gnome"
+		"Slurping spaghetti"
+		"In front of a museum"
+		"With a vegetable stand"
 	]
 
 	# remove hunts that have taken place already
@@ -145,16 +168,17 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 			if hunts.length
 				tomorrowStart = Math.floor(Plugin.time()/86400)*86400 + 86400
 				nextTime = tomorrowStart + (10*3600) + Math.floor(Math.random()*(12*3600))
-				Timer.cancel()
-				Timer.set (nextTime-Plugin.time())*1000, 'newHunt'
-				Db.shared.set 'next', nextTime
+				if (nextTime-Plugin.time()) > 3600
+					Timer.cancel()
+					Timer.set (nextTime-Plugin.time())*1000, 'newHunt'
+					Db.shared.set 'next', nextTime
 
 		# we'll only notify when this is about a single new hunt
 		if newHunts.length is 1
 			subj = newHunts[0]
 			Event.create
 				unit: 'hunts'
-				text: "New Photo Hunt: take a photo of you.. " + subj.charAt(0).toLowerCase() + subj.slice(1)
+				text: "New Photo Hunt: you " + subj.charAt(0).toLowerCase() + subj.slice(1)
 
 exports.client_removePhoto = (huntId, photoId, disqualify = false) !->
 	photos = Db.shared.ref 'hunts', huntId, 'photos'
