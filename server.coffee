@@ -3,6 +3,8 @@ Plugin = require 'plugin'
 Db = require 'db'
 Event = require 'event'
 
+exports.getTitle = !-> # prevents title input from showing up when adding the plugin
+
 exports.onInstall = () !->
 	newHunt(3) # we'll start with 3 subjects
 	Event.create
@@ -10,9 +12,28 @@ exports.onInstall = () !->
 		text: "New Photo Hunt: earn points by completing the various hunts!"
 
 exports.onUpgrade = !->
-	# apparently a timer did not fire, correct it
+	# apparently a timer did not fire (or we were out of hunts, next -> 1), correct it
 	if 0 < Db.shared.get('next') < Plugin.time()
-		newHunt()
+		Timer.set(Math.floor(Math.random()*7200*1000), 'newRound')
+
+newHuntDelayDays = ->
+	maxId = Db.shared.get 'hunts', 'maxId'
+	delayDays = 1
+	if maxId>7
+		openHunts = 0
+		deltaTime = false
+		for i in [maxId...maxId-7]
+			if Db.shared.get 'hunts', i, 'photos', 'maxId'
+				break # a photo was posted
+			if i>1
+				deltaTime = Db.shared.get('hunts', i, 'time') - Db.shared.get('hunts', i-1, 'time')
+			if deltaTime is false or deltaTime>10*60*60 # probably not manually triggered, count it
+				openHunts++
+
+		if openHunts > 2 # at least 3 consecutive open hunts
+			delayDays = Math.pow(openHunts - 2, 2) # 1, 4, 9, 16, 25 days delay
+	delayDays
+
 
 exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !->
 	return if Db.shared.get('next') is -1
@@ -133,6 +154,33 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 		"Slurping spaghetti"
 		"In front of a museum"
 		"With a vegetable stand"
+		"Climbing a fence"
+		"Wearing too much lipstick"
+		"At a busstop"
+		"In the center of a roundabout"
+		"Wearing a wig"
+		"With a statue"
+		"Wearing a clown nose"
+		"Wearing your clothes inside out"
+		"Wearing two watches"
+		"Reading a Playboy magazine"
+		"In a McDonalds"
+		"Trying to tongue-touch your nose"
+		"Licking someone's ear"
+		"Kissing someone's boots"
+		"Balancing a filled glass on your head"
+		"Holding a bowling ball"
+		"Swimming"
+		"Wearing a suit or evening dress"
+		"Talking to a sock puppet"
+		"In a garbage bin"
+		"Sitting on the toilet"
+		"With a lampshade over your head"
+		"Reading Harry Potter"
+		"Doing a handstand"
+		"With an analog phone"
+		"Lifting a dumbbell"
+		"With your name written on your forehead"
 	]
 
 	# remove hunts that have taken place already
@@ -151,6 +199,7 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 
 	if !newHunts.length
 		log 'no more hunts available'
+		Db.shared.set 'next', 1 # shows 'no more hunts for now'
 		if cb
 			cb.reply true
 	else
@@ -166,8 +215,9 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 
 			# schedule the next hunt when there are still hunts left
 			if hunts.length
-				tomorrowStart = Math.floor(Plugin.time()/86400)*86400 + 86400
-				nextTime = tomorrowStart + (10*3600) + Math.floor(Math.random()*(12*3600))
+				delayDays = (if cb then 1 else newHuntDelayDays()) # always 1 when manually triggered by user
+				nextDayStart = Math.floor(Plugin.time()/86400)*86400 + Math.max(1, delayDays)*86400
+				nextTime = nextDayStart + (10*3600) + Math.floor(Math.random()*(12*3600))
 				if (nextTime-Plugin.time()) > 3600
 					Timer.cancel()
 					Timer.set (nextTime-Plugin.time())*1000, 'newHunt'
@@ -231,14 +281,23 @@ exports.onPhoto = (info, huntId) !->
 
 	hunt = Db.shared.ref 'hunts', huntId
 	maxId = hunt.incr 'photos', 'maxId'
+	info.time = 0|(Date.now()*.001)
 	hunt.set 'photos', maxId, info
+	notifyText = ''
+	path = null
 	if !hunt.get 'winner'
 		hunt.set 'winner', maxId
-		Event.create
-			unit: 'hunts'
-			text: "Photo Hunt: "+Plugin.userName()+" won! ("+hunt.get('subject')+")"
+		notifyText = 'won!'
 	else
 		addComment huntId, "added a runner-up"
+		notifyText = 'added a runner-up'
+		path = [huntId]
+
+	Event.create
+		unit: 'hunts'
+		path: path
+		text: "Photo Hunt: "+Plugin.userName()+' '+notifyText+' ('+hunt.get('subject')+')'
+		sender: Plugin.userId()
 
 addComment = (huntId, comment) !->
 	comment =

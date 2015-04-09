@@ -1,4 +1,6 @@
 name: Photo Hunt
 description: Who's the first to take the required photo?
-store: 800
 api: 2
+store: 800
+hint: The first to complete the photo assignment wins 10 points. A new hunt starts daily between 10am and 10pm.
+single: true

@@ -1,18 +1,20 @@
 Db = require 'db'
 Dom = require 'dom'
-Modal = require 'modal'
+Event = require 'event'
+Form = require 'form'
 Icon = require 'icon'
 Loglist = require 'loglist'
+Modal = require 'modal'
 Obs = require 'obs'
-Plugin = require 'plugin'
 Page = require 'page'
-Server = require 'server'
-Ui = require 'ui'
-Form = require 'form'
-Time = require 'time'
-Colors = Plugin.colors()
 Photo = require 'photo'
+Plugin = require 'plugin'
+Server = require 'server'
 Social = require 'social'
+Time = require 'time'
+Ui = require 'ui'
+
+Colors = Plugin.colors()
 {tr} = require 'i18n'
 
 exports.render = !->
@@ -52,18 +54,21 @@ exports.render = !->
 		loop
 			Dom.div !->
 				Dom.style Box: true, padding: '4px 12px 0 12px'
+				if !sorted.length
+					Dom.div !->
+						Dom.style Flex: 1, textAlign: 'center', padding: '10px'
+						Dom.text tr("No photos have been submitted yet")
+
 				for i in [0...3]
 					break unless userId = sorted[pos+i]
 					points = rankings.get(userId)
-					if !points
-						if pos+i==0
-							Dom.div !->
-								Dom.style Flex: 1, textAlign: 'center', padding: '10px'
-								Dom.text tr("No photos have been submitted yet")
-						break
 					Dom.div !->
+						uiUid = userId
 						Dom.style Box: 'center vertical', Flex: 1
-						Ui.avatar Plugin.userAvatar(userId), null, 80
+						Ui.avatar Plugin.userAvatar(userId),
+							size: 80
+							onTap: !->
+								Plugin.userInfo(uiUid)
 						Dom.div !->
 							Dom.style margin: '4px', textAlign: 'center'
 							Dom.text Plugin.userName(userId)
@@ -88,28 +93,23 @@ exports.render = !->
 				Dom.style width: '70px', height: '70px', marginRight: '10px', Box: 'center middle'
 				Icon.render data: 'clock2', color: '#aaa', style: { display: 'block' }, size: 34
 			Dom.div !->
-				Dom.div tr("A new Hunt will start")
-				Dom.div !->
-					Dom.style fontSize: '120%', fontWeight: 'bold'
-					Time.deltaText Db.shared.get('next')
+				next = Db.shared.get 'next'
+				if +next is 1
+					Dom.div tr("No more hunts available, we will let you know when new ones have been added...")
+				else
+					Dom.div tr("A new hunt will start")
+					Dom.div !->
+						Dom.style fontSize: '120%', fontWeight: 'bold'
+						Time.deltaText next
 
 			Dom.onTap !->
+				###
 				requestNewHunt = !->
 					Server.call 'newHunt', 1, (done) !->
 						if (done)
-							require('modal').show tr("No more hunts"), tr("All hunts have taken place, contact the Happening makers about adding new hunts!")
-				if Plugin.userId() is Plugin.ownerId()
-					require('modal').show tr("New Hunt"), tr("Every day a new Hunt wil start somewhere between 10am and 10pm. You however (and admins), can trigger a new hunt manually (you added the Photo Hunt)."), (option) !->
-						if option is 'new'
-							requestNewHunt()
-					, ['cancel', tr("Cancel"), 'new', tr("New Hunt")]
-				else if Plugin.userIsAdmin()
-					require('modal').show tr("New Hunt"), tr("Every day a new Hunt wil start somewhere between 10am and 10pm. Admins however (and %1, who added the Photo Hunt), can trigger a new hunt manually.", Plugin.userName(Plugin.ownerId())), (option) !->
-						if option is 'new'
-							requestNewHunt()
-					, ['cancel', tr("Cancel"), 'new', tr("New Hunt")]
-				else
-					require('modal').show tr("New Hunt"), tr("Every day a new Hunt wil start somewhere between 10am and 10pm, unless an admin or %1 (who added the Photo Hunt) trigger a new hunt manually.", Plugin.userName(Plugin.ownerId()))
+							require('modal').show tr("No more hunts"), tr("All hunts have taken place, contact the Happening makers about your hunt suggestions!")
+				###
+				require('modal').show tr("New hunt"), tr("A new hunt starts daily somewhere between 10am and 22pm")
 
 
 		Db.shared.observeEach 'hunts', (hunt) !->
@@ -128,14 +128,11 @@ exports.render = !->
 						Dom.text hunt.get('subject')
 						if hunt.get('winner')
 							Dom.div !->
-								Dom.style fontSize: '75%', marginTop: '6px'
+								Dom.style fontSize: '75%', marginTop: '6px', color: (if Event.isNew(hunt.get('photos', hunt.get('winner'), 'time')) then '#5b0' else '')
 								Dom.text tr("%1 won!", Plugin.userName(hunt.get('photos', hunt.get('winner'), 'userId')))
 								if (cnt = hunt.count('photos').get()-2)
 									Dom.text ' (' + tr("%1 |runner-up|runners-up", cnt) + ')'
 
-					if unread = Social.newComments(hunt.key())
-						Dom.div !->
-							Ui.unread unread, null, {marginLeft: '4px'}
 				else
 					showAsNewest = +hunt.key() is +Db.shared.get('hunts', 'maxId') and Plugin.created() isnt hunt.get('time')
 					Dom.div !->
@@ -144,13 +141,13 @@ exports.render = !->
 							data: (if showAsNewest then 'new' else 'warn')
 							style: { display: 'block' }
 							size: 34
-							color: (if showAsNewest then null else '#aaa')
+							color: (if showAsNewest then (if Event.isNew(hunt.get('time')) then '#5b0' else Colors.highlight) else '#aaa')
 					Dom.div !->
 						Dom.style Flex: 1, fontSize: '120%'
 						if showAsNewest
 							Dom.text tr "Take a photo of you.."
 							Dom.div !->
-								Dom.style fontSize: '120%', fontWeight: 'bold', color: Colors.highlight
+								Dom.style fontSize: '120%', fontWeight: 'bold', color: (if Event.isNew(hunt.get('time')) then '#5b0' else Colors.highlight)
 								Dom.text hunt.get('subject')
 						else
 							Dom.text hunt.get('subject')
@@ -160,16 +157,19 @@ exports.render = !->
 								if (cnt = hunt.count('photos').get()-1) > 0
 									Dom.text ' (' + tr("%1 disqualified |runner-up|runners-up", cnt) + ')'
 
-					if unread = Social.newComments(hunt.key())
-						Dom.div !->
-							Ui.unread unread, null, {marginLeft: '4px'}
+				Event.renderBubble [hunt.key()], style: marginLeft: '4px'
 
 				Dom.onTap !->
 					Page.nav [hunt.key()]
 
 		, (hunt) -> # skip the maxId key
 			if +hunt.key()
-				-hunt.key()
+				currentHunt = if +hunt.key() is +Db.shared.get('hunts', 'maxId') and !hunt.get('winner') then 0 else 1
+				winnerTime = hunt.get('photos', hunt.get('winner'), 'time')
+				newWinnerTime = if Event.isNew(winnerTime) then -winnerTime else 0
+				unreadCount = -Event.getUnread([hunt.key()])
+				[currentHunt, newWinnerTime, unreadCount, -hunt.key()]
+				# -hunt.key() - 1000 * Event.getUnread([hunt.key()]) - 100000 * +Event.isNew(hunt.get('photos', hunt.get('winner'), 'time'))
 
 getUploading = (huntId) ->
 	if uploads = Photo.uploads.get()
@@ -178,24 +178,27 @@ getUploading = (huntId) ->
 
 renderUploading = (upload, boxSize) !->
 	Dom.div !->
-		Dom.style
-			margin: '2px'
-			display: 'inline-block'
-			Box: 'inline right bottom'
-			height: boxSize.get() + 'px'
-			width: boxSize.get() + 'px'
-		if thumb = upload.thumb
+		Dom.div !->
 			Dom.style
-				background: "url(#{thumb}) 50% 50% no-repeat"
-				backgroundSize: 'cover'
-		Dom.cls 'photo'
-		Ui.spinner 24, !->
-			Dom.style margin: '5px'
-		, 'spin-light.png'
+				margin: '2px'
+				display: 'inline-block'
+				Box: 'inline right bottom'
+				height: boxSize.get() + 'px'
+				width: boxSize.get() + 'px'
+			if thumb = upload.thumb
+				Dom.style
+					background: "url(#{thumb}) 50% 50% no-repeat"
+					backgroundSize: 'cover'
+			Dom.cls 'photo'
+			Ui.spinner 24, !->
+				Dom.style margin: '5px'
+			, 'spin-light.png'
 
 renderHunt = (huntId, photoId) !->
 	Dom.style padding: 0
-	Page.setTitle Db.shared.get('hunts', huntId, 'subject')
+	subject = Db.shared.get('hunts', huntId, 'subject')
+	Page.setTitle subject
+	Event.showStar subject
 
 	winnerId = Db.shared.get 'hunts', huntId, 'winner'
 	photos = Db.shared.ref 'hunts', huntId, 'photos'
@@ -205,10 +208,10 @@ renderHunt = (huntId, photoId) !->
 		mainPhoto = photos.ref winnerId
 
 	# remove button
-	if mainPhoto.get('userId') is Plugin.userId() or Plugin.userIsAdmin()
+	if (photoId or winnerId) and (mainPhoto.get('userId') is Plugin.userId() or Plugin.userIsAdmin())
 		showDisqualify = Plugin.userIsAdmin() and mainPhoto.key() is winnerId
 		Page.setActions
-			icon: if showDisqualify then Plugin.resourceUri('icon-report-48.png') else Plugin.resourceUri('icon-trash-48.png')
+			icon: if showDisqualify then Plugin.resourceUri('icon-report-48.png') else 'trash'
 			action: !->
 				if showDisqualify
 					question = tr "Remove, or disqualify photo?"
@@ -232,7 +235,7 @@ renderHunt = (huntId, photoId) !->
 	boxSize = Obs.create()
 	Obs.observe !->
 		width = Dom.viewport.get('width')
-		cnt = (0|(width / 100)) || 1
+		cnt = (0|(width / 150)) || 1
 		boxSize.set(0|(width-((cnt+1)*4))/cnt)
 
 	if !photoId
@@ -244,31 +247,40 @@ renderHunt = (huntId, photoId) !->
 				allowUpload.set true
 	
 	Dom.div !->
-		Dom.style backgroundColor: '#fff', paddingBottom: '2px', borderBottom: '2px solid #ccc'
+		Dom.style backgroundColor: '#fff', borderBottom: '2px solid #ccc'
 		# main photo
 		contain = Obs.create false
 		if mainPhoto and mainPhoto.key()
+			photoUserId = mainPhoto.get 'userId'
+
 			(require 'photoview').render
 				key: mainPhoto.get('key')
 				content: !->
-					Ui.avatar Plugin.userAvatar(mainPhoto.get('userId')), !->
-						Dom.style position: 'absolute', bottom: '4px', right: '4px', margin: 0
-
+					Dom.style backgroundColor: '#000'
 					Dom.div !->
 						Dom.style
 							position: 'absolute'
-							textAlign: 'right'
-							bottom: '10px'
-							right: '50px'
-							textShadow: '0 1px 0 #000'
-							color: '#fff'
-						if photoId
-							Dom.text tr("Runner-up by %1", Plugin.userName(mainPhoto.get('userId')))
-						else
-							Dom.text tr("Won by %1", Plugin.userName(mainPhoto.get('userId')))
-						Dom.div !->
-							Dom.style fontSize: '75%'
-							Dom.text tr("%1 point|s", if photoId then 2 else 10)
+							bottom: 0
+							left: 0
+							right: 0
+							textAlign: 'center'
+							padding: '24px 8px 8px 8px'
+							color: 'white'
+							background_: 'linear-gradient(top, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0.6) 100%)'
+						Dom.h3 !->
+							Dom.style color: '#ccc'
+							Dom.text (if photoId then tr("Runner-up by %1", Plugin.userName(photoUserId)) else tr("%1 won!", Plugin.userName(photoUserId)))
+
+						Dom.span !->
+							Dom.style fontSize: '85%', fontWeight: 'bold', whiteSpace: 'nowrap'
+							Social.renderLike
+								path: [huntId]
+								id: 'p'+mainPhoto.key()
+								userId: photoUserId
+								aboutWhat: tr("photo")
+								noExpand: true
+								color: '#fff'
+
 		else if !photoId
 			Dom.div !->
 				Dom.style textAlign: 'center', padding: '16px'
@@ -288,10 +300,15 @@ renderHunt = (huntId, photoId) !->
 			# do we have a winner, or runner-ups?
 			if winnerId or photos.count().get()>(1 + if winnerId then 1 else 0)
 				Dom.div !->
-					Dom.style padding: '2px'
+					Dom.style padding: '2px', textAlign: 'center'
 
-					Dom.h2 !->
-						Dom.style margin: '8px 2px 4px 2px'
+					Dom.h3 !->
+						Dom.style
+							color: '#fff'
+							backgroundColor: '#ccc'
+							margin: '2px'
+							padding: '4px'
+							borderRadius: '10px 10px 0 0'
 						Dom.text tr "Runners-up (2 points)"
 
 					photos.observeEach (photo) !->
@@ -300,18 +317,45 @@ renderHunt = (huntId, photoId) !->
 							Dom.cls 'photo'
 							Dom.style
 								display: 'inline-block'
-								position: 'relative'
 								margin: '2px'
+								position: 'relative'
 								height: (boxSize.get()) + 'px'
 								width: (boxSize.get()) + 'px'
 								backgroundImage: Photo.css photo.get('key'), 200
 								backgroundSize: 'cover'
 								backgroundPosition: '50% 50%'
 								backgroundRepeat: 'no-repeat'
-							Ui.avatar Plugin.userAvatar(photo.get('userId')), !->
-								Dom.style position: 'absolute', bottom: '4px', right: '4px', margin: 0
+
+							Dom.div !->
+								Dom.style
+									position: 'absolute'
+									bottom: 0
+									left: 0
+									right: 0
+									Box: 'bottom'
+									textAlign: 'left'
+									padding: '24px 6px 6px 6px'
+									color: 'white'
+									background_: 'linear-gradient(top, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0.6) 100%)'
+
+								Dom.div !->
+									Dom.style fontSize: '70%', marginBottom: '2px', fontWeight: 'bold', whiteSpace: 'nowrap', Flex: 1
+									Social.renderLike
+										path: [huntId]
+										id: 'p'+photo.key()
+										userId: photo.get('userId')
+										noExpand: true
+										aboutWhat: tr("photo")
+										color: '#fff'
+
+								Ui.avatar Plugin.userAvatar(photo.get('userId')),
+									size: 28
+									style: margin: 0, backgroundColor: 'white'
+									onTap: !-> Plugin.userInfo(photo.get('userId'))
+
 							Dom.onTap !->
 								Page.nav [huntId, photo.key()]
+
 					, (photo) ->
 						if +photo.key()
 							photo.key()
@@ -322,7 +366,7 @@ renderHunt = (huntId, photoId) !->
 						addPhoto boxSize.get()-4, huntId
 					else if photos.count().get()<=(1 + if winnerId then 1 else 0) # maxId is also counted
 						Dom.div !->
-							Dom.style padding: '2px', color: '#aaa'
+							Dom.style padding: '6px 2px', color: '#aaa'
 							Dom.text tr "No runners-up submitted"
 
 	if !photoId
