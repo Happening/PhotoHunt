@@ -88,28 +88,31 @@ exports.render = !->
 	Ui.list !->
 		Dom.style marginTop: '4px'
 		# next hunt
+		next = Db.shared.get 'next'
 		Ui.item !->
 			Dom.div !->
-				Dom.style width: '70px', height: '70px', marginRight: '10px', Box: 'center middle'
-				Icon.render data: 'clock2', color: '#aaa', style: { display: 'block' }, size: 34
-			Dom.div !->
-				next = Db.shared.get 'next'
+				Dom.style Box: 'center middle', Flex: true
+				Dom.div !->
+					Dom.style width: '70px', height: '70px', marginRight: '10px', Box: 'center middle'
+					Icon.render data: 'clock2', color: '#aaa', style: { display: 'block' }, size: 34
 				if +next is 1
 					Dom.div tr("No more hunts available, we will let you know when new ones have been added...")
 				else
-					Dom.div tr("A new hunt will start")
 					Dom.div !->
-						Dom.style fontSize: '120%', fontWeight: 'bold'
-						Time.deltaText next
-
-			Dom.onTap !->
-				###
-				requestNewHunt = !->
-					Server.call 'newHunt', 1, (done) !->
-						if (done)
-							require('modal').show tr("No more hunts"), tr("All hunts have taken place, contact the Happening makers about your hunt suggestions!")
-				###
-				require('modal').show tr("New hunt"), tr("A new hunt starts daily somewhere between 10am and 22pm")
+						Dom.style Flex: true
+						Dom.div tr("A new hunt will start")
+						Dom.div !->
+							Dom.style fontSize: '120%', fontWeight: 'bold'
+							Time.deltaText next
+					Dom.onTap !->
+						require('modal').show tr("New hunt"), tr("A new hunt will normally appear daily, unless the group app owner or an admin starts one manually")
+			if +next isnt 1 and (Plugin.userId() is Plugin.ownerId() or Plugin.userIsAdmin())
+				Dom.div !->
+					Dom.style borderLeft: '1px solid #ccc', padding: '10px 14px'
+					Icon.render data: 'fastforward'
+					Dom.onTap !->
+						require('modal').confirm tr("Start new hunt now?"), tr("The group app owner and/or admin can start a new round. Use it when all hunters want to continue to the next round."), !->
+							Server.call 'newHunt', 1
 
 
 		Db.shared.observeEach 'hunts', (hunt) !->
@@ -165,10 +168,11 @@ exports.render = !->
 		, (hunt) -> # skip the maxId key
 			if +hunt.key()
 				currentHunt = if +hunt.key() is +Db.shared.get('hunts', 'maxId') and !hunt.get('winner') then 0 else 1
-				winnerTime = hunt.get('photos', hunt.get('winner'), 'time')
-				newWinnerTime = if Event.isNew(winnerTime) then -winnerTime else 0
-				unreadCount = -Event.getUnread([hunt.key()])
-				[currentHunt, newWinnerTime, unreadCount, -hunt.key()]
+				createTime = hunt.get('time')
+				winnerTime = hunt.get('photos', hunt.get('winner'), 'time')||0
+				orderTime = Event.getOrder([hunt.key()])
+				[currentHunt, -Math.max(orderTime, winnerTime, createTime)]
+				#[currentHunt, newWinnerTime, unreadCount, -hunt.key()]
 				# -hunt.key() - 1000 * Event.getUnread([hunt.key()]) - 100000 * +Event.isNew(hunt.get('photos', hunt.get('winner'), 'time'))
 
 getUploading = (huntId) ->

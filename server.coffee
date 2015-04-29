@@ -14,7 +14,7 @@ exports.onInstall = () !->
 exports.onUpgrade = !->
 	# apparently a timer did not fire (or we were out of hunts, next -> 1), correct it
 	if 0 < Db.shared.get('next') < Plugin.time()
-		Timer.set(Math.floor(Math.random()*7200*1000), 'newRound')
+		Timer.set(Math.floor(Math.random()*7200*1000), 'newHunt')
 
 newHuntDelayDays = ->
 	maxId = Db.shared.get 'hunts', 'maxId'
@@ -181,6 +181,23 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 		"With an analog phone"
 		"Lifting a dumbbell"
 		"With your name written on your forehead"
+		"In a carwash"
+		"Wrapped in toiletpaper"
+		"Eating with chopsticks"
+		"Eating a pickled herring"
+		"Wearing a Hawaiian shirt"
+		"Upside down"
+		"Trying to bite your big toe"
+		"Through a magnifying glass"
+		"With someone else also taking a selfie"
+		"Riding a broomstick"
+		"Wearing a tinfoil hat"
+		"Crossing your eyes"
+		"With someone over 70 years old"
+		"Wearing wooden shoes"
+		"Walking a baby stroller"
+		"With a bus/taxi driver"
+		"Wearing a poncho"
 	]
 
 	# remove hunts that have taken place already
@@ -203,7 +220,7 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 		if cb
 			cb.reply true
 	else
-		log 'selected new hunts: '+JSON.stringify(newHunts)
+		log 'selected new hunt(s): '+JSON.stringify(newHunts)
 
 		for newHunt in newHunts
 			maxId = Db.shared.ref('hunts').incr 'maxId'
