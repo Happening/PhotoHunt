@@ -7,9 +7,6 @@ exports.getTitle = !-> # prevents title input from showing up when adding the pl
 
 exports.onInstall = () !->
 	newHunt(3) # we'll start with 3 subjects
-	Event.create
-		unit: 'hunts'
-		text: "New Photo Hunt: earn points by completing the various hunts!"
 
 exports.onUpgrade = !->
 	# apparently a timer did not fire (or we were out of hunts, next -> 1), correct it
@@ -198,6 +195,33 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 		"Walking a baby stroller"
 		"With a bus/taxi driver"
 		"Wearing a poncho"
+		"With an insect on the tip of your finger"
+		"Wearing a towel as a cape"
+		"Wearing a mudmask"
+		"Sunbathing on a towel"
+		"Planking"
+		"Squashing a tomato with your hand"
+		"Balancing a CD/DVD on your nose"
+		"Showing a blue tongue"
+		"Wearing a tie rambo-style"
+		"Reading a bible"
+		"Showing off a trophy cup"
+		"Balancing a ball on your finger"
+		"Vacuuming"
+		"With (candy) hearts in your eyes"
+		"Making a shadowbunny with your hand(s)"
+		"Wearing a crown or tiara"
+		"Passionately hugging a bar stool"
+		"In front of a movie poster"
+		"Holding a game console controller"
+		"On a fatboy sitting bag"
+		"At a concert"
+		"Drinking a cocktail"
+		"Knitting"
+		"Wearing a chef's hat"
+		"Rope-pulling with a dog"
+		"Wearing a showercap"
+		"Blowdrying your hair"
 	]
 
 	# remove hunts that have taken place already
@@ -233,7 +257,7 @@ exports.client_newHunt = exports.newHunt = newHunt = (amount = 1, cb = false) !-
 			# schedule the next hunt when there are still hunts left
 			if hunts.length
 				delayDays = (if cb then 1 else newHuntDelayDays()) # always 1 when manually triggered by user
-				nextDayStart = Math.floor(Plugin.time()/86400)*86400 + Math.max(1, delayDays)*86400
+				nextDayStart = Math.floor(Plugin.time()/86400)*86400 + Math.max(1, delayDays)*86400 + ((new Date).getTimezoneOffset() * 60)
 				nextTime = nextDayStart + (10*3600) + Math.floor(Math.random()*(12*3600))
 				if (nextTime-Plugin.time()) > 3600
 					Timer.cancel()
@@ -263,8 +287,8 @@ exports.client_removePhoto = (huntId, photoId, disqualify = false) !->
 	# find a new winner if necessary
 	newWinnerName = null
 	if Db.shared.get('hunts', huntId, 'winner') is photoId
-		smId = (+k for k, v of photos.get() when !v.disqualified)?.sort()[0]
-		Db.shared.set 'hunts', huntId, 'winner', smId
+		smId = (+k for k, v of photos.get() when +k and !v.disqualified)?.sort()[0] || null
+		Db.shared.set 'hunts', huntId, 'winner', smId # can also remove winner
 		if smId
 			newWinnerName = Plugin.userName(photos.get smId, 'userId')
 			Event.create

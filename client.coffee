@@ -49,7 +49,7 @@ exports.render = !->
 	showMore = Obs.create false
 
 	Obs.observe !->
-		sorted = (+k for k, v of rankings.get()).sort (a, b) -> rankings.get(b) - rankings.get(a)
+		sorted = (+k for k, v of rankings.get() when +k).sort (a, b) -> rankings.get(b) - rankings.get(a)
 		points = pos = 0
 		loop
 			Dom.div !->
@@ -212,8 +212,8 @@ renderHunt = (huntId, photoId) !->
 		mainPhoto = photos.ref winnerId
 
 	# remove button
-	if (photoId or winnerId) and (mainPhoto.get('userId') is Plugin.userId() or Plugin.userIsAdmin())
-		showDisqualify = Plugin.userIsAdmin() and mainPhoto.key() is winnerId
+	if (photoId or winnerId) and (mainPhoto.get('userId') is Plugin.userId() or Plugin.userIsAdmin() or Plugin.userId() is Plugin.ownerId())
+		showDisqualify = (Plugin.userId() is Plugin.ownerId() or Plugin.userIsAdmin()) and mainPhoto.key() is winnerId
 		Page.setActions
 			icon: if showDisqualify then Plugin.resourceUri('icon-report-48.png') else 'trash'
 			action: !->
@@ -260,7 +260,7 @@ renderHunt = (huntId, photoId) !->
 			(require 'photoview').render
 				key: mainPhoto.get('key')
 				content: !->
-					Dom.style backgroundColor: '#000'
+					Dom.style backgroundColor: '#000', position: 'relative'
 					Dom.div !->
 						Dom.style
 							position: 'absolute'
